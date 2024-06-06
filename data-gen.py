@@ -2,7 +2,7 @@ import json
 import random
 import uuid
 
-# Custom entities based on your Home Assistant setup
+# Custom entities based demo Home Assistant setup
 entities = {
     "sensor": ["carbon_dioxide", "carbon_monoxide", "outside_humidity", "outside_temperature", "movement_backyard"],
     "fan": ["ceiling_fan", "living_room_fan"],
