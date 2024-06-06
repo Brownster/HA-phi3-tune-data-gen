@@ -2,7 +2,7 @@ import json
 import random
 import uuid
 
-# Custom entities based demo Home Assistant setup
+# Custom entities and areas based on your Home Assistant setup
 entities = {
     "sensor": ["carbon_dioxide", "carbon_monoxide", "outside_humidity", "outside_temperature", "movement_backyard"],
     "fan": ["ceiling_fan", "living_room_fan"],
@@ -15,6 +15,8 @@ entities = {
     "media_player": ["group", "kitchen", "living_room", "lounge_room"],
     "todo": ["shopping_list"]
 }
+
+areas = ["living_room", "kitchen", "bedroom", "garage", "hallway", "office"]
 
 intents = {
     "turn_on": [
@@ -109,21 +111,20 @@ def generate_synthetic_data(num_examples=100):
         intent = random.choice(list(intents.keys()))
         entity_type = random.choice(list(entities.keys()))
         entity = random.choice(entities[entity_type])
+        area = random.choice(areas)
         
         user_command_template = random.choice(intents[intent])
         if intent == "set_temperature":
             temperature = random.randint(60, 80)
             user_command = user_command_template.format(entity, temperature)
             tool_call = {
-                "tool_name": "set_temperature",
-                "tool_args": {
-                    "entity_id": f"{entity_type}.{entity}",
-                    "temperature": temperature
+                "domain": "climate",
+                "service": "set_temperature",
+                "target": {
+                    "entity_id": f"{entity_type}.{entity}"
                 },
-                "platform": "homeassistant",
-                "context": {
-                    "user_prompt": user_command,
-                    "language": "en"
+                "data": {
+                    "temperature": temperature
                 }
             }
             ha_response = f"The {entity} temperature has been set to {temperature} degrees."
@@ -131,15 +132,13 @@ def generate_synthetic_data(num_examples=100):
             mode = random.choice(["cool", "heat", "fan_only", "auto"])
             user_command = user_command_template.format(entity, mode)
             tool_call = {
-                "tool_name": "set_mode",
-                "tool_args": {
-                    "entity_id": f"{entity_type}.{entity}",
-                    "mode": mode
+                "domain": "climate",
+                "service": "set_mode",
+                "target": {
+                    "entity_id": f"{entity_type}.{entity}"
                 },
-                "platform": "homeassistant",
-                "context": {
-                    "user_prompt": user_command,
-                    "language": "en"
+                "data": {
+                    "mode": mode
                 }
             }
             ha_response = f"The {entity} mode has been set to {mode}."
@@ -147,15 +146,13 @@ def generate_synthetic_data(num_examples=100):
             brightness = random.randint(1, 100)
             user_command = user_command_template.format(entity)
             tool_call = {
-                "tool_name": "turn_on",
-                "tool_args": {
-                    "entity_id": f"{entity_type}.{entity}",
-                    "brightness_pct": brightness
+                "domain": "light",
+                "service": "turn_on",
+                "target": {
+                    "entity_id": f"{entity_type}.{entity}"
                 },
-                "platform": "homeassistant",
-                "context": {
-                    "user_prompt": user_command,
-                    "language": "en"
+                "data": {
+                    "brightness_pct": brightness
                 }
             }
             ha_response = f"The brightness of {entity} has been set to {brightness}%."
@@ -163,50 +160,46 @@ def generate_synthetic_data(num_examples=100):
             item = random.choice(["milk", "bread", "eggs", "cheese"])
             user_command = user_command_template.format(item, entity)
             tool_call = {
-                "tool_name": "add_to_list",
-                "tool_args": {
-                    "item": item
+                "domain": "shopping_list",
+                "service": "add_item",
+                "target": {
+                    "entity_id": f"{entity_type}.{entity}"
                 },
-                "platform": "homeassistant",
-                "context": {
-                    "user_prompt": user_command,
-                    "language": "en"
+                "data": {
+                    "item": item
                 }
             }
             ha_response = f"{item} has been added to your {entity.replace('_', ' ')}."
         else:
             user_command = user_command_template.format(entity)
             tool_call = {
-                "tool_name": intent,
-                "tool_args": {
-                    "entity_id": f"{entity_type}.{entity}"
-                },
-                "platform": "homeassistant",
-                "context": {
-                    "user_prompt": user_command,
-                    "language": "en"
+                "domain": entity_type,
+                "service": intent,
+                "target": {
+                    "entity_id": f"{entity_type}.{entity}",
+                    "area_id": [area]
                 }
             }
             if intent.startswith("turn"):
-                ha_response = f"The {entity} has been turned {'on' if 'on' in intent else 'off'}."
+                ha_response = f"The {entity} in the {area} has been turned {'on' if 'on' in intent else 'off'}."
             elif intent == "lock":
-                ha_response = f"The {entity} has been locked."
+                ha_response = f"The {entity} in the {area} has been locked."
             elif intent == "unlock":
-                ha_response = f"The {entity} has been unlocked."
+                ha_response = f"The {entity} in the {area} has been unlocked."
             elif intent == "start":
-                ha_response = f"The {entity} has been started."
+                ha_response = f"The {entity} in the {area} has been started."
             elif intent == "stop":
-                ha_response = f"The {entity} has been stopped."
+                ha_response = f"The {entity} in the {area} has been stopped."
             elif intent == "enable":
-                ha_response = f"The {entity} has been enabled."
+                ha_response = f"The {entity} in the {area} has been enabled."
             elif intent == "disable":
-                ha_response = f"The {entity} has been disabled."
+                ha_response = f"The {entity} in the {area} has been disabled."
             elif intent == "open":
-                ha_response = f"The {entity} has been opened."
+                ha_response = f"The {entity} in the {area} has been opened."
             elif intent == "close":
-                ha_response = f"The {entity} has been closed."
+                ha_response = f"The {entity} in the {area} has been closed."
             elif intent == "get_status":
-                ha_response = f"The status of {entity} is {'on' if 'on' in intent else 'off'}."
+                ha_response = f"The status of {entity} in the {area} is {'on' if 'on' in intent else 'off'}."
         
         # Add system message with current states of entities
         current_states = {f"{entity_type}.{entity}": random.choice(["on", "off", "locked", "unlocked", "72 degrees", "idle"]) for entity_type in entities for entity in entities[entity_type]}
