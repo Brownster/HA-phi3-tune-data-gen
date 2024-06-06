@@ -2,18 +2,18 @@ import json
 import random
 import uuid
 
-# Expanded data for synthetic generation with more intent variations
+# Custom entities based on your Home Assistant setup
 entities = {
-    "light": ["living_room_light", "kitchen_light", "bedroom_light"],
-    "thermostat": ["main_thermostat", "bedroom_thermostat"],
-    "sensor": ["basement_humidity", "kitchen_temperature", "outdoor_motion"],
-    "lock": ["front_door", "back_door", "garage_door"],
-    "vacuum": ["robot_vacuum"],
-    "camera": ["front_door_camera", "backyard_camera"],
-    "alarm": ["home_alarm", "garage_alarm"],
-    "blind": ["living_room_blinds", "bedroom_blinds"],
-    "fan": ["ceiling_fan", "desk_fan"],
-    "switch": ["garden_lights_switch", "living_room_switch"]
+    "sensor": ["carbon_dioxide", "carbon_monoxide", "outside_humidity", "outside_temperature", "movement_backyard"],
+    "fan": ["ceiling_fan", "living_room_fan"],
+    "light": ["ceiling_lights", "kitchen_lights"],
+    "switch": ["decorative_lights"],
+    "humidifier": ["dehumidifier", "humidifier", "hygrostat"],
+    "water_heater": ["demo_water_heater"],
+    "climate": ["ecobee", "heatpump", "hvac"],
+    "cover": ["garage_door", "hall_window", "kitchen_window", "living_room_window"],
+    "media_player": ["group", "kitchen", "living_room", "lounge_room"],
+    "todo": ["shopping_list"]
 }
 
 intents = {
@@ -94,25 +94,12 @@ intents = {
         "Set the {} to {} mode", 
         "Change the {} to {} mode",
         "Switch the {} to {} mode"
+    ],
+    "add_to_list": [
+        "Add {} to the {}",
+        "Put {} on the {}",
+        "Include {} in the {}"
     ]
-}
-
-api_endpoints = {
-    "turn_on": "/api/services/{}/turn_on",
-    "turn_off": "/api/services/{}/turn_off",
-    "set_temperature": "/api/services/thermostat/set_temperature",
-    "get_status": "/api/states/{}",
-    "lock": "/api/services/lock/lock",
-    "unlock": "/api/services/lock/unlock",
-    "start": "/api/services/{}/start",
-    "stop": "/api/services/{}/stop",
-    "enable": "/api/services/alarm_control_panel/alarm_arm_away",
-    "disable": "/api/services/alarm_control_panel/alarm_disarm",
-    "open": "/api/services/cover/open_cover",
-    "close": "/api/services/cover/close_cover",
-    "dim": "/api/services/light/turn_on",  # Assuming dimming is part of turning on the light with brightness
-    "increase_brightness": "/api/services/light/turn_on",
-    "set_mode": "/api/services/{}/set_mode"
 }
 
 def generate_synthetic_data(num_examples=100):
@@ -120,29 +107,86 @@ def generate_synthetic_data(num_examples=100):
     
     for _ in range(num_examples):
         intent = random.choice(list(intents.keys()))
-        valid_entities = [entity for entity in entities if entity in api_endpoints[intent]]
-        entity_type = random.choice(valid_entities)
+        entity_type = random.choice(list(entities.keys()))
         entity = random.choice(entities[entity_type])
         
         user_command_template = random.choice(intents[intent])
         if intent == "set_temperature":
             temperature = random.randint(60, 80)
             user_command = user_command_template.format(entity, temperature)
-            api_payload = json.dumps({"entity_id": entity, "temperature": temperature})
+            tool_call = {
+                "tool_name": "set_temperature",
+                "tool_args": {
+                    "entity_id": f"{entity_type}.{entity}",
+                    "temperature": temperature
+                },
+                "platform": "homeassistant",
+                "context": {
+                    "user_prompt": user_command,
+                    "language": "en"
+                }
+            }
             ha_response = f"The {entity} temperature has been set to {temperature} degrees."
         elif intent == "set_mode":
             mode = random.choice(["cool", "heat", "fan_only", "auto"])
             user_command = user_command_template.format(entity, mode)
-            api_payload = json.dumps({"entity_id": entity, "mode": mode})
+            tool_call = {
+                "tool_name": "set_mode",
+                "tool_args": {
+                    "entity_id": f"{entity_type}.{entity}",
+                    "mode": mode
+                },
+                "platform": "homeassistant",
+                "context": {
+                    "user_prompt": user_command,
+                    "language": "en"
+                }
+            }
             ha_response = f"The {entity} mode has been set to {mode}."
         elif intent in ["dim", "increase_brightness"]:
             brightness = random.randint(1, 100)
             user_command = user_command_template.format(entity)
-            api_payload = json.dumps({"entity_id": entity, "brightness_pct": brightness})
+            tool_call = {
+                "tool_name": "turn_on",
+                "tool_args": {
+                    "entity_id": f"{entity_type}.{entity}",
+                    "brightness_pct": brightness
+                },
+                "platform": "homeassistant",
+                "context": {
+                    "user_prompt": user_command,
+                    "language": "en"
+                }
+            }
             ha_response = f"The brightness of {entity} has been set to {brightness}%."
+        elif intent == "add_to_list":
+            item = random.choice(["milk", "bread", "eggs", "cheese"])
+            user_command = user_command_template.format(item, entity)
+            tool_call = {
+                "tool_name": "add_to_list",
+                "tool_args": {
+                    "item": item
+                },
+                "platform": "homeassistant",
+                "context": {
+                    "user_prompt": user_command,
+                    "language": "en"
+                }
+            }
+            ha_response = f"{item} has been added to your {entity.replace('_', ' ')}."
         else:
             user_command = user_command_template.format(entity)
-            api_payload = json.dumps({"entity_id": entity})
+            tool_call = {
+                "tool_name": intent,
+                "tool_args": {
+                    "entity_id": f"{entity_type}.{entity}"
+                },
+                "platform": "homeassistant",
+                "context": {
+                    "user_prompt": user_command,
+                    "language": "en"
+                }
+            }
             if intent.startswith("turn"):
                 ha_response = f"The {entity} has been turned {'on' if 'on' in intent else 'off'}."
             elif intent == "lock":
@@ -164,11 +208,8 @@ def generate_synthetic_data(num_examples=100):
             elif intent == "get_status":
                 ha_response = f"The status of {entity} is {'on' if 'on' in intent else 'off'}."
         
-        api_endpoint = api_endpoints[intent].format(entity_type)
-        api_response = {"result": "success", "status_code": 200}
-        
         # Add system message with current states of entities
-        current_states = {entity: random.choice(["on", "off", "locked", "unlocked", "72 degrees", "idle"]) for entity_list in entities.values() for entity in entity_list}
+        current_states = {f"{entity_type}.{entity}": random.choice(["on", "off", "locked", "unlocked", "72 degrees", "idle"]) for entity_type in entities for entity in entities[entity_type]}
         system_message = {
             "role": "system",
             "content": f"You are a virtual assistant. The current state of devices is as follows: {', '.join([f'{k}: {v}' for k, v in current_states.items()])}. Use these states to respond accurately to user commands."
@@ -180,13 +221,8 @@ def generate_synthetic_data(num_examples=100):
             "id": str(uuid.uuid4()),
             "user_command": user_command,
             "parsed_intent": intent,
-            "entity_information": entity,
-            "api_request": {
-                "endpoint": api_endpoint,
-                "payload": api_payload,
-                "headers": {"Authorization": "Bearer TOKEN", "Content-Type": "application/json"}
-            },
-            "api_response": api_response,
+            "entity_information": f"{entity_type}.{entity}",
+            "tool_call": tool_call,
             "contextual_information": current_states,
             "system_message": system_message,
             "ha_response": ha_response,
