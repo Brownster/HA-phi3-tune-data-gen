@@ -163,13 +163,13 @@ def generate_synthetic_data(num_examples=100):
                 "domain": "shopping_list",
                 "service": "add_item",
                 "target": {
-                    "entity_id": f"{entity_type}.{entity}"
+                    "area_id": [area]
                 },
                 "data": {
                     "item": item
                 }
             }
-            ha_response = f"{item} has been added to your {entity.replace('_', ' ')}."
+            ha_response = f"{item} has been added to your {area.replace('_', ' ')}."
         else:
             user_command = user_command_template.format(entity)
             tool_call = {
@@ -178,7 +178,8 @@ def generate_synthetic_data(num_examples=100):
                 "target": {
                     "entity_id": f"{entity_type}.{entity}",
                     "area_id": [area]
-                }
+                },
+                "data": {}
             }
             if intent.startswith("turn"):
                 ha_response = f"The {entity} in the {area} has been turned {'on' if 'on' in intent else 'off'}."
